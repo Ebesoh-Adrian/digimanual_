@@ -1,43 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '@mui/material';
-import { useMediaQuery } from '@mui/material';
 
-/**
- * Hook to detect mobile screens that avoids hydration mismatches
- * by only setting the value after mount on the client
- */
-export function useIsMobile() {
-  const theme = useTheme();
-  const matches = useMediaQuery(theme.breakpoints.down('sm'));
+export function useIsMobile(breakpoint = 640): boolean {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setIsMobile(matches);
-  }, [matches]);
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpoint]);
 
-  // Return false during SSR to avoid hydration mismatch
   return mounted ? isMobile : false;
 }
 
-/**
- * Hook to detect tablet/mobile screens (md breakpoint)
- */
-export function useIsTabletOrMobile() {
-  const theme = useTheme();
-  const matches = useMediaQuery(theme.breakpoints.down('md'));
-  const [isMobile, setIsMobile] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setIsMobile(matches);
-  }, [matches]);
-
-  // Return false during SSR to avoid hydration mismatch
-  return mounted ? isMobile : false;
+export function useIsTabletOrMobile(): boolean {
+  return useIsMobile(768);
 }
-

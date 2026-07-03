@@ -2,38 +2,27 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/lib/stores/userStore';
-import { Box, CircularProgress } from '@mui/material';
+import { useAuthStore } from '@/lib/stores/authStore';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, user } = useUserStore();
+  const { accessToken, user } = useAuthStore();
+
+  const isAuthorized = !!accessToken && user?.role === 'admin';
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
-      router.push('/login');
+    if (!isAuthorized) {
+      router.replace('/login');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthorized, router]);
 
-  if (!isAuthenticated || !user) {
+  if (!isAuthorized) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafb]">
+        <div className="w-8 h-8 border-2 border-[#2d6a4f] border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
   return <>{children}</>;
 }
-
