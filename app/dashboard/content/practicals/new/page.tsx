@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, FlaskConical, Atom, Leaf, Code2, FileText } from 'lucide-react';
+import { ChevronRight, FlaskConical, Atom, Leaf, Code2, FileText, ChevronDown } from 'lucide-react';
 import api from '@/lib/api/client';
 import { getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -16,7 +16,40 @@ interface Chapter {
   order_index?: number;
 }
 
-/* ─── constants ─────────────────────────────────────── */
+/* ─── GCE Cameroon subjects ──────────────────────────── */
+const GCE_SUBJECTS = [
+  // Sciences
+  'Biology',
+  'Chemistry',
+  'Physics',
+  'Further Mathematics',
+  'Mathematics',
+  'Computer Science',
+  'Agricultural Science',
+  // Languages
+  'English Language',
+  'Literature in English',
+  'French',
+  // Humanities & Social Sciences
+  'History',
+  'Geography',
+  'Religious Studies (CRK)',
+  'Religious Studies (IRK)',
+  'Civic Education',
+  // Business & Economics
+  'Economics',
+  'Commerce',
+  'Accounting',
+  // Technical & Vocational
+  'Technical Drawing',
+  'Food & Nutrition',
+  'Home Economics',
+  'Art & Craft',
+  'Music',
+  'Physical Education',
+];
+
+/* ─── scaffold templates ─────────────────────────────── */
 const TEMPLATES = [
   { value: 'chemistry_al',    label: 'Chemistry A-Level', icon: <FlaskConical size={24} />, desc: '14 sections', color: 'border-emerald-400 bg-emerald-50 text-emerald-700' },
   { value: 'physics_al',      label: 'Physics A-Level',   icon: <Atom size={24} />,         desc: '14 sections', color: 'border-blue-400 bg-blue-50 text-blue-700' },
@@ -42,14 +75,30 @@ export default function NewPracticalPage() {
   const [form, setForm] = useState({
     manualId: '',
     chapterId: '',
+    subject: '',
+    subjectCustom: '',
     title: '',
-    subjectTemplate: '',
+    subjectTemplate: 'generic',
     estimatedTime: 60,
     difficulty: 'intermediate',
     isPremium: false,
     priceXaf: 500,
   });
   const [saving, setSaving] = useState(false);
+
+  const isOther = form.subject === '__other__';
+  const resolvedSubject = isOther ? form.subjectCustom : form.subject;
+
+  // Auto-select best scaffold template when subject changes
+  useEffect(() => {
+    if (!form.subject || form.subject === '__other__') return;
+    const lower = form.subject.toLowerCase();
+    if (lower.includes('chemistry')) setForm((f) => ({ ...f, subjectTemplate: 'chemistry_al' }));
+    else if (lower.includes('physics')) setForm((f) => ({ ...f, subjectTemplate: 'physics_al' }));
+    else if (lower.includes('biology')) setForm((f) => ({ ...f, subjectTemplate: 'biology' }));
+    else if (lower.includes('computer')) setForm((f) => ({ ...f, subjectTemplate: 'computer_science' }));
+    else setForm((f) => ({ ...f, subjectTemplate: 'generic' }));
+  }, [form.subject]);
 
   // Manuals list
   const { data: manualsRaw } = useQuery({
@@ -79,20 +128,22 @@ export default function NewPracticalPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.subjectTemplate) { toast.error('Select a subject template'); return; }
+    if (!resolvedSubject.trim()) { toast.error('Select or enter a subject'); return; }
+    if (!form.title.trim()) { toast.error('Enter a title for this practical'); return; }
     setSaving(true);
     try {
       const res = await api.post<ApiResponse<{ practical: { id: string } }>>('/admin/practicals', {
         manualId: form.manualId || undefined,
         chapterId: form.chapterId || undefined,
-        title: form.title,
+        subject: resolvedSubject.trim(),
+        title: form.title.trim(),
         subjectTemplate: form.subjectTemplate,
         estimatedTime: form.estimatedTime,
         difficulty: form.difficulty,
         isPremium: form.isPremium,
         priceXaf: form.isPremium ? form.priceXaf : undefined,
       });
-      const id = res.data.data?.practical?.id ?? (res.data.data as any)?.id;
+      const id = res.data.data?.practical?.id ?? (res.data.data as Record<string, unknown>)?.id;
       toast.success('Practical created — scaffolding sections…');
       router.push(`/dashboard/content/practicals/${id}`);
     } catch (err) {
@@ -112,68 +163,122 @@ export default function NewPracticalPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Create Practical</h1>
-        <p className="text-sm text-slate-500 mt-1">Choose a subject template — the backend will scaffold the correct sections automatically.</p>
+        <p className="text-sm text-slate-500 mt-1">Choose a subject and title, then pick a scaffold template for the sections.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Template selector */}
+
+        {/* ── Subject ────────────────────────────────────── */}
         <div>
-          <label className="block text-sm font-semibold text-slate-800 mb-3">Subject Template *</label>
+          <label className="block text-sm font-semibold text-slate-800 mb-1.5">Subject *</label>
+          <div className="relative">
+            <select
+              value={form.subject}
+              onChange={(e) => setForm({ ...form, subject: e.target.value, subjectCustom: '' })}
+              className="w-full h-10 pl-3 pr-9 rounded-lg border border-[#e2e8f0] text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">— Select a subject —</option>
+              {GCE_SUBJECTS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+              <option value="__other__">Other — type manually…</option>
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
+
+          {isOther && (
+            <input
+              autoFocus
+              value={form.subjectCustom}
+              onChange={(e) => setForm({ ...form, subjectCustom: e.target.value })}
+              placeholder="Type the subject name…"
+              className="mt-2 w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          )}
+        </div>
+
+        {/* ── Title ──────────────────────────────────────── */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Practical Title *</label>
+          <input
+            required
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Titration of Hydrochloric Acid"
+          />
+        </div>
+
+        {/* ── Scaffold template ───────────────────────────── */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+            Scaffold Template *
+            <span className="ml-2 text-xs font-normal text-slate-400">Pre-creates the correct sections for this subject type</span>
+          </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {TEMPLATES.map((t) => (
-              <button key={t.value} type="button" onClick={() => setForm({ ...form, subjectTemplate: t.value })}
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setForm({ ...form, subjectTemplate: t.value })}
                 className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
                   form.subjectTemplate === t.value ? t.color + ' border-2' : 'border-[#e2e8f0] hover:border-gray-300 text-gray-600'
-                }`}>
+                }`}
+              >
                 <span className={form.subjectTemplate === t.value ? '' : 'text-gray-400'}>{t.icon}</span>
-                <span className="text-sm font-medium">{t.label}</span>
+                <span className="text-sm font-medium text-center">{t.label}</span>
                 <span className="text-xs opacity-70">{t.desc}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Title */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Title *</label>
-          <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-            placeholder="e.g. Titration of Hydrochloric Acid" />
-        </div>
-
-        {/* Manual + Chapter */}
+        {/* ── Manual + Chapter ────────────────────────────── */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Manual</label>
-            <select value={form.manualId} onChange={(e) => setForm({ ...form, manualId: e.target.value })}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <select
+              value={form.manualId}
+              onChange={(e) => setForm({ ...form, manualId: e.target.value })}
+              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
               <option value="">— None —</option>
               {manuals.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Chapter</label>
-            <select value={form.chapterId} onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
+            <select
+              value={form.chapterId}
+              onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
               disabled={!form.manualId}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50 disabled:text-gray-400">
+              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50 disabled:text-gray-400"
+            >
               <option value="">— None —</option>
               {chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
           </div>
         </div>
 
-        {/* Estimated time + Difficulty */}
+        {/* ── Estimated time + Difficulty ─────────────────── */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Estimated Time (minutes)</label>
-            <input type="number" min={5} value={form.estimatedTime}
+            <input
+              type="number"
+              min={5}
+              value={form.estimatedTime}
               onChange={(e) => setForm({ ...form, estimatedTime: Number(e.target.value) })}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Difficulty</label>
-            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <select
+              value={form.difficulty}
+              onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
+              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="advanced">Advanced</option>
@@ -181,36 +286,49 @@ export default function NewPracticalPage() {
           </div>
         </div>
 
-        {/* Premium */}
+        {/* ── Premium ─────────────────────────────────────── */}
         <div className="space-y-3">
           <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]">
             <div>
               <p className="text-sm font-medium text-slate-700">Premium Content</p>
               <p className="text-xs text-slate-500">Requires subscription to access</p>
             </div>
-            <button type="button" onClick={() => setForm({ ...form, isPremium: !form.isPremium })}
-              className={`relative w-11 h-6 rounded-full transition-colors ${form.isPremium ? 'bg-purple-600' : 'bg-gray-300'}`}>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, isPremium: !form.isPremium })}
+              className={`relative w-11 h-6 rounded-full transition-colors ${form.isPremium ? 'bg-purple-600' : 'bg-gray-300'}`}
+            >
               <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${form.isPremium ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </div>
           {form.isPremium && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Price (XAF)</label>
-              <input type="number" min={0} value={form.priceXaf}
+              <input
+                type="number"
+                min={0}
+                value={form.priceXaf}
                 onChange={(e) => setForm({ ...form, priceXaf: Number(e.target.value) })}
-                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
             </div>
           )}
         </div>
 
-        {/* Actions */}
+        {/* ── Actions ─────────────────────────────────────── */}
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={() => router.back()}
-            className="flex-1 h-11 rounded-lg border border-slate-300 text-sm font-medium text-gray-700 hover:bg-slate-50">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex-1 h-11 rounded-lg border border-slate-300 text-sm font-medium text-gray-700 hover:bg-slate-50"
+          >
             Cancel
           </button>
-          <button type="submit" disabled={saving || !form.title || !form.subjectTemplate}
-            className="flex-1 h-11 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-60 transition-colors">
+          <button
+            type="submit"
+            disabled={saving || !resolvedSubject.trim() || !form.title.trim()}
+            className="flex-1 h-11 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-60 transition-colors"
+          >
             {saving ? 'Creating…' : 'Create & Edit →'}
           </button>
         </div>
