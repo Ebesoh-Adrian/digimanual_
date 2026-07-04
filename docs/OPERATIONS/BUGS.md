@@ -4,6 +4,17 @@
 
 ## Fixed bugs
 
+### BUG-000 — Vercel deploy fails: recharts peer dependency conflict with React 19
+**Severity:** Critical (blocks all deployments)  
+**Status:** ✅ Fixed  
+**Symptom:** `npm install` on Vercel errors with `ERESOLVE` — `recharts@2.12.7` declares `peer react@"^16.0.0 || ^17.0.0 || ^18.0.0"` but the project uses React 19.2.0.  
+**Root cause:** recharts 2.x peer dep declaration hasn't been updated for React 19 yet, even though the library works fine at runtime with React 19.  
+**Fix:** Added `.npmrc` at the project root with `legacy-peer-deps=true`. This tells npm to skip strict peer dep enforcement — the standard resolution for this class of issue.  
+**File added:** `.npmrc`
+
+---
+
+
 ### BUG-001 — Hydration error on DndContext
 **Severity:** Medium  
 **Status:** ✅ Fixed  

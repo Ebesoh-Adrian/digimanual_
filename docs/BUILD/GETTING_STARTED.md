@@ -170,3 +170,4 @@ await api.post('/endpoint', fd, { headers: { 'Content-Type': 'multipart/form-dat
 | TypeScript error on `manual.tags` | Already typed as `string[]` — no cast needed |
 | `dnd-kit` hydration warning | Wrap DndContext in `mounted` check |
 | Tailwind classes not applying | Run `npm run dev` fresh; Tailwind v4 uses new JIT |
+| `npm install` ERESOLVE on Vercel | Already fixed — `.npmrc` with `legacy-peer-deps=true` is committed. If it recurs locally, run `npm install --legacy-peer-deps` |
