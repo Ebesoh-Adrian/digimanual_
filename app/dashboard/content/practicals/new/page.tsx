@@ -18,35 +18,44 @@ interface Chapter {
 
 /* ─── GCE Cameroon subjects ──────────────────────────── */
 const GCE_SUBJECTS = [
-  // Sciences
   'Biology',
   'Chemistry',
   'Physics',
-  'Further Mathematics',
   'Mathematics',
+  'Further Mathematics',
   'Computer Science',
   'Agricultural Science',
-  // Languages
   'English Language',
   'Literature in English',
   'French',
-  // Humanities & Social Sciences
   'History',
   'Geography',
   'Religious Studies (CRK)',
   'Religious Studies (IRK)',
   'Civic Education',
-  // Business & Economics
   'Economics',
   'Commerce',
   'Accounting',
-  // Technical & Vocational
   'Technical Drawing',
   'Food & Nutrition',
   'Home Economics',
   'Art & Craft',
   'Music',
   'Physical Education',
+];
+
+/* ─── Exam levels ────────────────────────────────────── */
+const EXAM_LEVELS = [
+  { value: 'OL',          label: 'O-Level (Ordinary Level)' },
+  { value: 'AL',          label: 'A-Level (Advanced Level)' },
+  { value: 'Probatoire',  label: 'Probatoire' },
+  { value: 'BAC',         label: 'Baccalauréat (BAC)' },
+  { value: 'BAC_TECH',    label: 'BAC Technique' },
+  { value: 'BTS',         label: 'BTS (Brevet de Technicien Supérieur)' },
+  { value: 'CAP',         label: 'CAP (Certificat d\'Aptitude Professionnelle)' },
+  { value: 'BEPC',        label: 'BEPC / Brevet' },
+  { value: 'CEP',         label: 'CEP (Certificat d\'Études Primaires)' },
+  { value: 'Other',       label: 'Other / Not applicable' },
 ];
 
 /* ─── scaffold templates ─────────────────────────────── */
@@ -73,12 +82,13 @@ export default function NewPracticalPage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    manualId: '',
-    chapterId: '',
     subject: '',
     subjectCustom: '',
+    examLevel: '',
     title: '',
     subjectTemplate: 'generic',
+    manualId: '',
+    chapterId: '',
     estimatedTime: 60,
     difficulty: 'intermediate',
     isPremium: false,
@@ -93,11 +103,11 @@ export default function NewPracticalPage() {
   useEffect(() => {
     if (!form.subject || form.subject === '__other__') return;
     const lower = form.subject.toLowerCase();
-    if (lower.includes('chemistry')) setForm((f) => ({ ...f, subjectTemplate: 'chemistry_al' }));
-    else if (lower.includes('physics')) setForm((f) => ({ ...f, subjectTemplate: 'physics_al' }));
-    else if (lower.includes('biology')) setForm((f) => ({ ...f, subjectTemplate: 'biology' }));
-    else if (lower.includes('computer')) setForm((f) => ({ ...f, subjectTemplate: 'computer_science' }));
-    else setForm((f) => ({ ...f, subjectTemplate: 'generic' }));
+    if (lower.includes('chemistry'))      setForm((f) => ({ ...f, subjectTemplate: 'chemistry_al' }));
+    else if (lower.includes('physics'))   setForm((f) => ({ ...f, subjectTemplate: 'physics_al' }));
+    else if (lower.includes('biology'))   setForm((f) => ({ ...f, subjectTemplate: 'biology' }));
+    else if (lower.includes('computer'))  setForm((f) => ({ ...f, subjectTemplate: 'computer_science' }));
+    else                                  setForm((f) => ({ ...f, subjectTemplate: 'generic' }));
   }, [form.subject]);
 
   // Manuals list
@@ -129,15 +139,17 @@ export default function NewPracticalPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resolvedSubject.trim()) { toast.error('Select or enter a subject'); return; }
-    if (!form.title.trim()) { toast.error('Enter a title for this practical'); return; }
+    if (!form.examLevel)         { toast.error('Select an exam level'); return; }
+    if (!form.title.trim())      { toast.error('Enter a title for this practical'); return; }
     setSaving(true);
     try {
       const res = await api.post<ApiResponse<{ practical: { id: string } }>>('/admin/practicals', {
-        manualId: form.manualId || undefined,
-        chapterId: form.chapterId || undefined,
         subject: resolvedSubject.trim(),
+        examLevel: form.examLevel,
         title: form.title.trim(),
         subjectTemplate: form.subjectTemplate,
+        manualId: form.manualId || undefined,
+        chapterId: form.chapterId || undefined,
         estimatedTime: form.estimatedTime,
         difficulty: form.difficulty,
         isPremium: form.isPremium,
@@ -163,10 +175,10 @@ export default function NewPracticalPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Create Practical</h1>
-        <p className="text-sm text-slate-500 mt-1">Choose a subject and title, then pick a scaffold template for the sections.</p>
+        <p className="text-sm text-slate-500 mt-1">Fill in the subject, level, and title — then pick a section scaffold.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* ── Subject ────────────────────────────────────── */}
         <div>
@@ -185,7 +197,6 @@ export default function NewPracticalPage() {
             </select>
             <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
           </div>
-
           {isOther && (
             <input
               autoFocus
@@ -195,6 +206,24 @@ export default function NewPracticalPage() {
               className="mt-2 w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           )}
+        </div>
+
+        {/* ── Exam Level ─────────────────────────────────── */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-800 mb-1.5">Exam Level *</label>
+          <div className="relative">
+            <select
+              value={form.examLevel}
+              onChange={(e) => setForm({ ...form, examLevel: e.target.value })}
+              className="w-full h-10 pl-3 pr-9 rounded-lg border border-[#e2e8f0] text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">— Select exam level —</option>
+              {EXAM_LEVELS.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
         </div>
 
         {/* ── Title ──────────────────────────────────────── */}
@@ -212,8 +241,8 @@ export default function NewPracticalPage() {
         {/* ── Scaffold template ───────────────────────────── */}
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-            Scaffold Template *
-            <span className="ml-2 text-xs font-normal text-slate-400">Pre-creates the correct sections for this subject type</span>
+            Section Scaffold *
+            <span className="ml-2 text-xs font-normal text-slate-400">Pre-creates sections for this subject type</span>
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {TEMPLATES.map((t) => (
@@ -222,7 +251,9 @@ export default function NewPracticalPage() {
                 type="button"
                 onClick={() => setForm({ ...form, subjectTemplate: t.value })}
                 className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                  form.subjectTemplate === t.value ? t.color + ' border-2' : 'border-[#e2e8f0] hover:border-gray-300 text-gray-600'
+                  form.subjectTemplate === t.value
+                    ? t.color + ' border-2'
+                    : 'border-[#e2e8f0] hover:border-gray-300 text-gray-600'
                 }`}
               >
                 <span className={form.subjectTemplate === t.value ? '' : 'text-gray-400'}>{t.icon}</span>
@@ -233,30 +264,35 @@ export default function NewPracticalPage() {
           </div>
         </div>
 
-        {/* ── Manual + Chapter ────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Manual</label>
-            <select
-              value={form.manualId}
-              onChange={(e) => setForm({ ...form, manualId: e.target.value })}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="">— None —</option>
-              {manuals.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Chapter</label>
-            <select
-              value={form.chapterId}
-              onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
-              disabled={!form.manualId}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50 disabled:text-gray-400"
-            >
-              <option value="">— None —</option>
-              {chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
+        {/* ── Manual + Chapter (optional) ─────────────────── */}
+        <div>
+          <p className="text-sm font-semibold text-slate-800 mb-2">
+            Link to Manual <span className="text-xs font-normal text-slate-400 ml-1">(optional)</span>
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Manual</label>
+              <select
+                value={form.manualId}
+                onChange={(e) => setForm({ ...form, manualId: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">— None —</option>
+                {manuals.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Chapter</label>
+              <select
+                value={form.chapterId}
+                onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
+                disabled={!form.manualId}
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                <option value="">— None —</option>
+                {chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -326,7 +362,7 @@ export default function NewPracticalPage() {
           </button>
           <button
             type="submit"
-            disabled={saving || !resolvedSubject.trim() || !form.title.trim()}
+            disabled={saving || !resolvedSubject.trim() || !form.examLevel || !form.title.trim()}
             className="flex-1 h-11 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-60 transition-colors"
           >
             {saving ? 'Creating…' : 'Create & Edit →'}

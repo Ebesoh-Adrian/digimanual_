@@ -97,6 +97,8 @@ CREATE TABLE topics (
 CREATE TABLE practicals (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title            TEXT NOT NULL,
+  subject          TEXT,          -- e.g. 'Chemistry', 'Mathematics' (full display name)
+  exam_level       TEXT,          -- 'OL'|'AL'|'Probatoire'|'BAC'|'BAC_TECH'|'BTS'|'CAP'|'BEPC'|'CEP'|'Other'
   subject_template TEXT NOT NULL, -- 'chemistry_al'|'physics_al'|'biology'|'computer_science'|'generic'
   manual_id        UUID REFERENCES manuals(id),
   chapter_id       UUID,          -- references a chapter/topic within the manual
@@ -109,6 +111,11 @@ CREATE TABLE practicals (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migration (run if table already exists):
+-- ALTER TABLE practicals
+--   ADD COLUMN IF NOT EXISTS subject    TEXT,
+--   ADD COLUMN IF NOT EXISTS exam_level TEXT;
 ```
 
 ### `sections`
