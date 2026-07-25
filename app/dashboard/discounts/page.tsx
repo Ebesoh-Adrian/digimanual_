@@ -21,23 +21,40 @@ function genCode() {
   return `DIGI${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 }
 
+// Verified: POST /admin/discounts requires { name, discountType, discountValue, startDate, endDate } (camelCase)
+// Optional: description, code, appliesTo, minAmount, maxUses, userLimit
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
+    name: '',
     code: genCode(),
-    discount_type: 'percentage' as 'percentage' | 'fixed',
-    discount_value: 20,
-    max_uses: 100,
+    discountType: 'percentage' as 'percentage' | 'fixed',
+    discountValue: 20,
+    maxUses: 100,
     description: '',
-    end_date: '',
+    startDate: today,
+    endDate: '',
   });
   const [loading, setLoading] = useState(false);
   const set = (k: string, v: string | number) => setForm((p) => ({ ...p, [k]: v }));
 
   const submit = async () => {
-    if (!form.code || !form.discount_value) { toast.error('Code and value are required'); return; }
+    if (!form.name.trim()) { toast.error('Campaign name is required'); return; }
+    if (!form.discountValue) { toast.error('Discount value is required'); return; }
+    if (!form.endDate) { toast.error('End date is required'); return; }
     setLoading(true);
     try {
-      await api.post('/admin/discounts', form);
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        discountType: form.discountType,
+        discountValue: form.discountValue,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        code: form.code || undefined,
+        maxUses: form.maxUses || undefined,
+      };
+      if (form.description.trim()) payload.description = form.description.trim();
+      await api.post('/admin/discounts', payload);
       toast.success('Discount created');
       onCreated();
       onClose();
@@ -57,6 +74,12 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         </div>
         <div className="p-6 space-y-4">
           <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Campaign Name *</label>
+            <input value={form.name} onChange={(e) => set('name', e.target.value)}
+              placeholder="e.g. Back to School Promo"
+              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          </div>
+          <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Discount Code</label>
             <div className="flex gap-2">
               <input value={form.code} onChange={(e) => set('code', e.target.value.toUpperCase())}
@@ -71,8 +94,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             <label className="block text-xs font-medium text-slate-600 mb-1">Type</label>
             <div className="flex gap-2">
               {(['percentage', 'fixed'] as const).map((t) => (
-                <button key={t} onClick={() => set('discount_type', t)}
-                  className={`px-4 h-9 rounded-lg text-sm font-medium border transition-colors ${form.discount_type === t ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
+                <button key={t} onClick={() => set('discountType', t)}
+                  className={`px-4 h-9 rounded-lg text-sm font-medium border transition-colors ${form.discountType === t ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
                   {t === 'percentage' ? 'Percentage %' : 'Fixed XAF'}
                 </button>
               ))}
@@ -81,21 +104,29 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                Value {form.discount_type === 'percentage' ? '(%)' : '(XAF)'}
+                Value {form.discountType === 'percentage' ? '(%)' : '(XAF)'} *
               </label>
-              <input type="number" value={form.discount_value} onChange={(e) => set('discount_value', Number(e.target.value))}
+              <input type="number" value={form.discountValue} onChange={(e) => set('discountValue', Number(e.target.value))}
                 min={1} className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Max Uses (0 = unlimited)</label>
-              <input type="number" value={form.max_uses} onChange={(e) => set('max_uses', Number(e.target.value))}
+              <label className="block text-xs font-medium text-slate-600 mb-1">Max Uses (blank = unlimited)</label>
+              <input type="number" value={form.maxUses} onChange={(e) => set('maxUses', Number(e.target.value))}
                 min={0} className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Expiry Date (optional)</label>
-            <input type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Start Date *</label>
+              <input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">End Date *</label>
+              <input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)}
+                min={form.startDate}
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Description (internal)</label>

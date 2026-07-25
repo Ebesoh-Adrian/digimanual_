@@ -58,7 +58,7 @@ function TicketDetail({ ticket, onBack }: { ticket: SupportTicket; onBack: () =>
   })();
 
   const replyMutation = useMutation({
-    mutationFn: () => api.post(`/admin/support/${ticket.id}/reply`, { message: reply }),
+    mutationFn: () => api.post(`/admin/support/${ticket.id}/reply`, { reply }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'ticket', ticket.id] });
       qc.invalidateQueries({ queryKey: ['admin', 'support'] });

@@ -47,14 +47,24 @@ First deploy takes ~2–3 minutes. Subsequent deploys on `git push` take ~60–9
 
 ### Step 5 — Verify
 
-1. Open the Vercel URL (e.g. `https://digimanual-admin.vercel.app`)
+1. Open the Vercel URL (e.g. `https://digimanual-admin-nu.vercel.app`)
 2. You should see the login page at `/login`
 3. Log in with admin credentials
 4. Check that the dashboard loads data from the API
 
 ---
 
-## Custom domain (optional)
+## Custom domain
+
+The production admin panel is live at **https://admin.digimanual.online**.
+
+### Steps to add / update a custom domain in Vercel
+1. Go to Vercel → Project → **Settings → Domains**
+2. Add `admin.digimanual.online`
+3. Copy the DNS record Vercel shows (usually a CNAME pointing to `cname.vercel-dns.com`)
+4. Add that record in your domain registrar's DNS settings
+5. Wait for propagation (usually < 5 minutes on Vercel)
+6. SSL is provisioned automatically (Let's Encrypt)
 
 1. In Vercel → **Project → Settings → Domains**
 2. Add your domain: e.g. `admin.digimanual.com`
@@ -100,7 +110,7 @@ Common build failures:
 | Branch | Deployment type | URL pattern |
 |--------|----------------|-------------|
 | `main` | Production | `your-domain.com` |
-| `dev` / PR branches | Preview | `digimanual-admin-git-{branch}.vercel.app` |
+| `dev` / PR branches | Preview | `digimanual-admin-nu-git-{branch}.vercel.app` |
 
 Preview deployments use the same `NEXT_PUBLIC_API_URL` env var — they hit the production API unless you create separate Preview env vars pointing at a staging API.
 

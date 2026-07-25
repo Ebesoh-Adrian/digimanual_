@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -32,7 +32,15 @@ interface Topic {
 function extractManual(raw: unknown): Manual | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
-  if (r['manual']) return r['manual'] as Manual;
+  // { manual: {...} }
+  if (r['manual'] && typeof r['manual'] === 'object') return r['manual'] as Manual;
+  // { data: { manual: {...} } } or { data: { id: ... } }
+  if (r['data'] && typeof r['data'] === 'object') {
+    const d = r['data'] as Record<string, unknown>;
+    if (d['manual'] && typeof d['manual'] === 'object') return d['manual'] as Manual;
+    if (d['id']) return d as Manual;
+  }
+  // manual object directly at root
   if (r['id']) return raw as Manual;
   return null;
 }
@@ -196,7 +204,8 @@ function TopicMediaRow({ topic, manualId }: { topic: Topic; manualId: string }) 
     try {
       const fd = new FormData();
       fd.append('media', file);
-      await api.post(`/admin/manuals/${manualId}/topics/${topic.id}/media`, fd, {
+      // Verified path: POST /admin/topics/:topicId/media
+      await api.post(`/admin/topics/${topic.id}/media`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId, 'topics'] });
@@ -308,8 +317,12 @@ function SettingsPanel({ manual, manualId, onPublishToggle, publishLoading }: {
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append(type, file);
-      await api.post(`/admin/manuals/${manualId}/${type}`, fd, {
+      // Verified paths: POST /admin/manuals/:id/cover (field: cover)
+      //                 POST /admin/manuals/:id/file  (field: file)
+      const urlPath = type === 'cover' ? 'cover' : 'file';
+      const fieldName = type === 'cover' ? 'cover' : 'file';
+      fd.append(fieldName, file);
+      await api.post(`/admin/manuals/${manualId}/${urlPath}`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId] });
@@ -469,13 +482,14 @@ export default function ManualDetailPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: manualRaw, isLoading: manualLoading } = useQuery({
+  const { data: manualRaw, isLoading: manualLoading, isError: manualError } = useQuery({
     queryKey: ['admin', 'manuals', manualId],
     queryFn: async () => {
       const res = await api.get<ApiResponse<unknown>>(`/admin/manuals/${manualId}`);
-      return res.data.data;
+      return res.data.data ?? res.data;
     },
     enabled: !!manualId,
+    retry: 1,
   });
 
   const { data: topicsRaw, isLoading: topicsLoading } = useQuery({
@@ -494,10 +508,10 @@ export default function ManualDetailPage() {
   const [localTopics, setLocalTopics] = useState<Topic[]>([]);
   const displayTopics = localTopics.length ? localTopics : apiTopics;
 
-  // Keep local copy in sync when API data arrives
-  if (apiTopics.length && !localTopics.length) {
-    setLocalTopics(apiTopics);
-  }
+  // Sync local copy when API data arrives (must be in useEffect, not render body)
+  useEffect(() => {
+    if (apiTopics.length) setLocalTopics(apiTopics);
+  }, [apiTopics.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [addOpen, setAddOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
@@ -525,7 +539,8 @@ export default function ManualDetailPage() {
     if (!editingTopic) return;
     setSavingTopic(true);
     try {
-      await api.patch(`/admin/manuals/${manualId}/topics/${editingTopic.id}`, data);
+      // Verified path: PATCH /admin/topics/:topicId
+      await api.patch(`/admin/topics/${editingTopic.id}`, data);
       qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId, 'topics'] });
       setLocalTopics([]);
       setEditingTopic(null);
@@ -540,7 +555,8 @@ export default function ManualDetailPage() {
   const deleteTopic = async (topicId: string) => {
     setDeletingTopic(topicId);
     try {
-      await api.delete(`/admin/manuals/${manualId}/topics/${topicId}`);
+      // Verified path: DELETE /admin/topics/:topicId
+      await api.delete(`/admin/topics/${topicId}`);
       qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId, 'topics'] });
       setLocalTopics([]);
       toast.success('Topic deleted');
@@ -559,7 +575,8 @@ export default function ManualDetailPage() {
     setLocalTopics(next);
     setDragIdx(null);
     try {
-      await api.patch(`/admin/manuals/${manualId}/topics/${moved.id}`, { order_index: dropIdx });
+      // Verified path: PATCH /admin/topics/:topicId
+      await api.patch(`/admin/topics/${moved.id}`, { order_index: dropIdx });
     } catch {
       toast.error('Failed to save new order');
     }
@@ -597,11 +614,14 @@ export default function ManualDetailPage() {
     );
   }
 
-  if (!manual) {
+  if (manualError || (!manualLoading && !manual)) {
     return (
       <div className="text-center py-20">
-        <p className="text-slate-600 text-sm">Manual not found.</p>
-        <button onClick={() => router.back()} className="mt-2 text-sm text-purple-600 hover:underline">Go back</button>
+        <p className="text-slate-600 text-sm font-medium">
+          {manualError ? 'Failed to load manual — check your API connection.' : 'Manual not found.'}
+        </p>
+        <p className="text-xs text-slate-400 mt-1">Manual ID: {manualId}</p>
+        <button onClick={() => router.back()} className="mt-3 text-sm text-purple-600 hover:underline">Go back</button>
       </div>
     );
   }
