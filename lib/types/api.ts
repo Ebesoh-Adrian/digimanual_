@@ -38,6 +38,8 @@ export interface Manual {
   tags: string[];
   views: number;
   downloads: number;
+  average_rating: number | null;
+  total_ratings: number;
   created_at: string;
   users?: { display_name: string };
 }

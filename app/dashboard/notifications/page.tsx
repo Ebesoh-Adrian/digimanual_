@@ -7,7 +7,20 @@ import { getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // Verified: POST /admin/notifications/broadcast requires { title, message }
-// Optional: role ('student' | 'mentor' | 'admin') — omit to broadcast to all
+// Optional: type, role ('student' | 'mentor' | 'admin') — omit role to broadcast to all
+const NOTIFICATION_TYPES = [
+  { value: '',             label: 'General' },
+  { value: 'content',     label: 'Content' },
+  { value: 'quiz',        label: 'Quiz' },
+  { value: 'group',       label: 'Group' },
+  { value: 'streak',      label: 'Streak' },
+  { value: 'payment',     label: 'Payment' },
+  { value: 'subscription',label: 'Subscription' },
+  { value: 'mentor',      label: 'Mentor' },
+  { value: 'system',      label: 'System' },
+  { value: 'ai',          label: 'AI' },
+];
+
 const AUDIENCES = [
   { value: '',        label: 'All Users',     icon: <Users size={16} />,        desc: 'Every registered user on the platform' },
   { value: 'student', label: 'Students Only', icon: <GraduationCap size={16} />, desc: 'All student accounts' },
@@ -15,7 +28,7 @@ const AUDIENCES = [
 ];
 
 export default function NotificationsPage() {
-  const [form, setForm] = useState({ title: '', message: '', role: '' });
+  const [form, setForm] = useState({ title: '', message: '', role: '', type: '' });
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<{ sent: number; title: string } | null>(null);
 
@@ -27,6 +40,7 @@ export default function NotificationsPage() {
     try {
       const payload: Record<string, string> = { title: form.title, message: form.message };
       if (form.role) payload.role = form.role;
+      if (form.type) payload.type = form.type;
       const res = await api.post<{ data: { sent: number } }>('/admin/notifications/broadcast', payload);
       const sent = res.data?.data?.sent ?? 0;
       setLastResult({ sent, title: form.title });
@@ -71,6 +85,22 @@ export default function NotificationsPage() {
                   {a.icon} {a.label}
                 </span>
                 <span className="text-xs text-slate-400">{a.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Notification Type</label>
+          <div className="flex flex-wrap gap-2">
+            {NOTIFICATION_TYPES.map((t) => (
+              <button key={t.value} onClick={() => set('type', t.value)}
+                className={`px-3 h-8 rounded-lg border text-xs font-medium transition-colors ${
+                  form.type === t.value
+                    ? 'border-purple-500 bg-purple-50 text-purple-700'
+                    : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'
+                }`}>
+                {t.label}
               </button>
             ))}
           </div>

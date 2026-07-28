@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ChevronRight, Camera, FileText, GripVertical, Pencil, Upload, Trash2,
-  Plus, X, CheckCircle, Save, Clock, AlertTriangle,
+  Plus, X, CheckCircle, Save, Clock, AlertTriangle, Star,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { getErrorMessage } from '@/lib/utils';
@@ -450,6 +450,30 @@ function SettingsPanel({ manual, manualId, onPublishToggle, publishLoading }: {
           <Save size={14} /> {savingDetails ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
+
+      {/* Rating */}
+      {(manual.average_rating != null || (manual.total_ratings ?? 0) > 0) && (
+        <div className={`rounded-xl border p-4 space-y-1.5 ${
+          (manual.average_rating ?? 5) < 3
+            ? 'border-red-200 bg-red-50'
+            : 'border-[#e2e8f0] bg-white'
+        }`}>
+          <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+            <Star size={14} className="text-yellow-500 fill-yellow-500" /> Student Rating
+          </p>
+          <div className="flex items-baseline gap-2">
+            <span className={`text-2xl font-bold ${(manual.average_rating ?? 5) < 3 ? 'text-red-600' : 'text-slate-900'}`}>
+              {manual.average_rating != null ? manual.average_rating.toFixed(1) : '—'}
+            </span>
+            <span className="text-xs text-slate-400">/ 5 · {manual.total_ratings ?? 0} ratings</span>
+          </div>
+          {manual.average_rating != null && manual.average_rating < 3 && (
+            <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+              <AlertTriangle size={11} /> Low rating — consider reviewing content quality
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Danger zone */}
       <div className="border-2 border-red-200 rounded-xl p-4 space-y-2">

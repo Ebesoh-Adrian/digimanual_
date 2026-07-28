@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Search, BookOpen, Eye, CheckCircle, Lock,
-  MoreVertical, Pencil, Trash2, ListTree, X, Camera, FileText,
+  MoreVertical, Pencil, Trash2, ListTree, X, Camera, FileText, Star,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { formatDate, getErrorMessage } from '@/lib/utils';
@@ -155,17 +155,31 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     e.preventDefault();
     setSaving(true);
     try {
-      const fd = new FormData();
-      fd.append('title', form.title);
-      fd.append('subject', form.subject);
-      fd.append('level', form.level);
-      fd.append('language', form.language);
-      fd.append('description', form.description);
-      fd.append('isPremium', String(form.isPremium));
-      tags.forEach((t) => fd.append('tags[]', t));
-      if (coverFile) fd.append('cover', coverFile);
-      if (pdfFile) fd.append('pdf', pdfFile);
-      await api.post('/admin/manuals', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // Step 1: create manual with JSON (verified: POST /admin/manuals accepts JSON only)
+      const res = await api.post<ApiResponse<{ manual: { id: string } }>>('/admin/manuals', {
+        title: form.title,
+        subject: form.subject,
+        level: form.level,
+        language: form.language,
+        description: form.description || undefined,
+        tags: tags.length ? tags : undefined,
+        isPremium: form.isPremium,
+      });
+      const newId = res.data.data?.manual?.id ?? (res.data.data as Record<string, unknown>)?.id as string;
+
+      // Step 2: upload cover if provided (POST /admin/manuals/:id/cover, field: cover)
+      if (newId && coverFile) {
+        const fd = new FormData();
+        fd.append('cover', coverFile);
+        await api.post(`/admin/manuals/${newId}/cover`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }).catch(() => null);
+      }
+      // Step 3: upload PDF if provided (POST /admin/manuals/:id/file, field: file)
+      if (newId && pdfFile) {
+        const fd = new FormData();
+        fd.append('file', pdfFile);
+        await api.post(`/admin/manuals/${newId}/file`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }).catch(() => null);
+      }
+
       toast.success('Manual created');
       onCreated();
       onClose();
@@ -431,7 +445,7 @@ export default function ManualsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#e2e8f0] bg-[#f8fafc]">
-                {['Cover', 'Title', 'Level', 'Language', 'Topics', 'Views', 'Status', 'Created', 'Actions'].map((h) => (
+                {['Cover', 'Title', 'Level', 'Language', 'Rating', 'Views', 'Status', 'Created', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -479,8 +493,18 @@ export default function ManualsPage() {
                       {m.language === 'English' ? 'EN' : m.language === 'French' ? 'FR' : 'BILINGUAL'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                    — topics
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {m.average_rating != null ? (
+                      <div className="flex items-center gap-1">
+                        <Star size={12} className={m.average_rating < 3 ? 'text-red-400 fill-red-400' : 'text-yellow-400 fill-yellow-400'} />
+                        <span className={`text-sm font-medium ${m.average_rating < 3 ? 'text-red-600' : 'text-slate-700'}`}>
+                          {m.average_rating.toFixed(1)}
+                        </span>
+                        <span className="text-xs text-slate-400">({m.total_ratings})</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">No ratings</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     <span className="flex items-center gap-1"><Eye size={12} /> {(m.views ?? 0).toLocaleString()}</span>
