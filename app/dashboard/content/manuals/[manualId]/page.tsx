@@ -547,7 +547,19 @@ export default function ManualDetailPage() {
   const createTopic = async (data: Partial<Topic>) => {
     setSavingTopic(true);
     try {
-      await api.post(`/admin/manuals/${manualId}/topics`, data);
+      // Create requires camelCase keys (different from update which uses snake_case)
+      const payload = {
+        title: data.title,
+        description: data.description,
+        content: data.content,
+        contentType: data.content_type,
+        difficulty: data.difficulty,
+        estimatedTime: data.estimated_time,
+        orderIndex: data.order_index,
+        isPremium: data.is_premium,
+        priceXaf: (data as any).individual_price,
+      };
+      await api.post(`/admin/manuals/${manualId}/topics`, payload);
       qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId, 'topics'] });
       setLocalTopics([]);
       setAddOpen(false);
@@ -563,8 +575,10 @@ export default function ManualDetailPage() {
     if (!editingTopic) return;
     setSavingTopic(true);
     try {
-      // Verified path: PATCH /admin/topics/:topicId
-      await api.patch(`/admin/topics/${editingTopic.id}`, data);
+      // Verified path: PATCH /admin/topics/:topicId — snake_case keys required
+      const patch = { ...data, price_xaf: (data as any).individual_price };
+      delete (patch as any).individual_price;
+      await api.patch(`/admin/topics/${editingTopic.id}`, patch);
       qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId, 'topics'] });
       setLocalTopics([]);
       setEditingTopic(null);

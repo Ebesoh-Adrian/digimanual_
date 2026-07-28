@@ -76,10 +76,10 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append('exam_title', form.exam_title);
+      fd.append('examTitle', form.exam_title);
       fd.append('subject', form.subject);
       fd.append('level', form.level);
-      fd.append('exam_year', String(form.exam_year));
+      fd.append('examYear', String(form.exam_year));
       fd.append('file', paperFile);
       if (solutionFile) fd.append('solution', solutionFile);
       await api.post('/admin/past-questions', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
@@ -177,7 +177,7 @@ function SolutionModal({ paper, onClose, onDone }: { paper: PastQuestion; onClos
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('solution', file);
       await api.post(`/admin/past-questions/${paper.id}/solution`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('Solution uploaded');
       onDone();

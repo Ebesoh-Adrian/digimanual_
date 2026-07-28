@@ -18,15 +18,19 @@ function extract(raw: unknown): StudyGroup[] {
 }
 
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ name: '', subject: '', description: '', level: 'O-Level' });
+  const [form, setForm] = useState({ name: '', type: 'subject', subject: '', description: '', examLevel: '' });
   const [loading, setLoading] = useState(false);
   const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   const submit = async () => {
-    if (!form.name || !form.subject) { toast.error('Name and subject are required'); return; }
+    if (!form.name) { toast.error('Group name is required'); return; }
     setLoading(true);
     try {
-      await api.post('/admin/groups', form);
+      const payload: Record<string, string> = { name: form.name, type: form.type };
+      if (form.subject) payload.subject = form.subject;
+      if (form.description) payload.description = form.description;
+      if (form.examLevel) payload.examLevel = form.examLevel;
+      await api.post('/admin/groups', payload);
       toast.success('Study group created');
       onCreated();
       onClose();
@@ -52,18 +56,34 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Subject *</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Group Type *</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'subject', label: 'Subject' },
+                { value: 'exam_level', label: 'Exam Level' },
+                { value: 'division', label: 'Division' },
+                { value: 'general', label: 'General' },
+              ].map((t) => (
+                <button key={t.value} onClick={() => set('type', t.value)}
+                  className={`px-3 h-9 rounded-lg text-sm font-medium border transition-colors ${form.type === t.value ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Subject</label>
             <input value={form.subject} onChange={(e) => set('subject', e.target.value)}
               placeholder="e.g. Chemistry"
               className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Level</label>
-            <div className="flex gap-2">
-              {['O-Level', 'A-Level', 'Both'].map((l) => (
-                <button key={l} onClick={() => set('level', l)}
-                  className={`px-4 h-9 rounded-lg text-sm font-medium border transition-colors ${form.level === l ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
-                  {l}
+            <label className="block text-xs font-medium text-slate-600 mb-1">Exam Level</label>
+            <div className="flex gap-2 flex-wrap">
+              {['', 'O-Level', 'A-Level'].map((l) => (
+                <button key={l} onClick={() => set('examLevel', l)}
+                  className={`px-4 h-9 rounded-lg text-sm font-medium border transition-colors ${form.examLevel === l ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
+                  {l || 'Any'}
                 </button>
               ))}
             </div>
