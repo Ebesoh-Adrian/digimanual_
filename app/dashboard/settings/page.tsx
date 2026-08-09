@@ -14,6 +14,7 @@ interface ConfigField {
   suffix?: string;
   description?: string;
   isAiLimit?: boolean;
+  isDate?: boolean;
 }
 
 const CONFIG_FIELDS: ConfigField[] = [
@@ -26,6 +27,8 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'ai_limit_premium', label: 'AI Limit — Premium', suffix: 'questions/month', description: 'Set to -1 for unlimited', isAiLimit: true },
   { key: 'past_q_free_views', label: 'Free Past Question Views', suffix: 'per month', description: 'How many past questions free users can view per month' },
   { key: 'discount_leaderboard_top', label: 'Leaderboard Auto-Reward Top N', suffix: 'students', description: 'Top N students who receive automatic discount rewards' },
+  { key: 'exam_date_ol', label: 'O-Level Exam Date', description: 'Powers the countdown card on the Home screen for O-Level students', isDate: true },
+  { key: 'exam_date_al', label: 'A-Level Exam Date', description: 'Powers the countdown card on the Home screen for A-Level students', isDate: true },
 ];
 
 // Normalize whatever the API returns into a flat { key: value } object
@@ -92,31 +95,42 @@ function ConfigRow({ field, value, onSaved }: {
         {field.description && <p className="text-xs text-[#64748b] mt-0.5">{field.description}</p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {field.isAiLimit && (
-          <label className="flex items-center gap-1.5 text-xs text-[#64748b] cursor-pointer whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={isUnlimited}
-              onChange={(e) => { setIsUnlimited(e.target.checked); if (!e.target.checked) setCurrent('100'); }}
-              className="w-3.5 h-3.5 accent-[#2d6a4f]"
-            />
-            Unlimited
-          </label>
-        )}
-        {(!field.isAiLimit || !isUnlimited) && (
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              disabled={field.isAiLimit && isUnlimited}
-              className="w-28 h-9 px-2 rounded-lg border border-[#e2e8f0] text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#2d6a4f] disabled:bg-gray-50 disabled:text-gray-400"
-            />
-            {field.suffix && <span className="text-xs text-[#64748b] whitespace-nowrap">{field.suffix}</span>}
-          </div>
-        )}
-        {field.isAiLimit && isUnlimited && (
-          <span className="w-28 h-9 px-2 rounded-lg border border-[#e2e8f0] bg-gray-50 text-sm text-center text-gray-400 flex items-center justify-center">∞</span>
+        {field.isDate ? (
+          <input
+            type="date"
+            value={current ? current.substring(0, 10) : ''}
+            onChange={(e) => setCurrent(e.target.value)}
+            className="h-9 px-2 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]"
+          />
+        ) : (
+          <>
+            {field.isAiLimit && (
+              <label className="flex items-center gap-1.5 text-xs text-[#64748b] cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={isUnlimited}
+                  onChange={(e) => { setIsUnlimited(e.target.checked); if (!e.target.checked) setCurrent('100'); }}
+                  className="w-3.5 h-3.5 accent-[#2d6a4f]"
+                />
+                Unlimited
+              </label>
+            )}
+            {(!field.isAiLimit || !isUnlimited) && (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  disabled={field.isAiLimit && isUnlimited}
+                  className="w-28 h-9 px-2 rounded-lg border border-[#e2e8f0] text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#2d6a4f] disabled:bg-gray-50 disabled:text-gray-400"
+                />
+                {field.suffix && <span className="text-xs text-[#64748b] whitespace-nowrap">{field.suffix}</span>}
+              </div>
+            )}
+            {field.isAiLimit && isUnlimited && (
+              <span className="w-28 h-9 px-2 rounded-lg border border-[#e2e8f0] bg-gray-50 text-sm text-center text-gray-400 flex items-center justify-center">∞</span>
+            )}
+          </>
         )}
         <button
           onClick={handleSave}

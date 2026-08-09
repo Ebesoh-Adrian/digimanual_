@@ -227,4 +227,24 @@ export interface PlatformConfig {
   ai_limit_premium: string;
   past_q_free_views: string;
   discount_leaderboard_top: string;
+  exam_date_ol: string;
+  exam_date_al: string;
+}
+
+export interface CarouselSlide {
+  id: string;
+  type: 'exam_countdown' | 'new_content' | 'custom';
+  title: string;
+  subtitle?: string;
+  label?: string;
+  ctaText?: string;
+  ctaRoute?: string;
+  gradientStart?: string;
+  gradientEnd?: string;
+  emoji?: string;
+  orderIndex?: number;
+  isActive?: boolean;
+  startsAt?: string;
+  endsAt?: string;
+  created_at: string;
 }

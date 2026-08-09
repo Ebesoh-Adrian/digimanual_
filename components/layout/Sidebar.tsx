@@ -14,6 +14,7 @@ import {
   Users2,
   Bell,
   Settings,
+  MonitorPlay,
   ChevronLeft,
   ChevronRight,
   X,
@@ -46,6 +47,7 @@ const buildNavItems = (pendingMentors: number, openTickets: number): NavItem[] =
   { label: 'Discounts', icon: <Tag size={18} />, path: '/dashboard/discounts', section: 'Engagement' },
   { label: 'Support', icon: <Headphones size={18} />, path: '/dashboard/support', section: 'Engagement', badge: openTickets },
   { label: 'Study Groups', icon: <Users2 size={18} />, path: '/dashboard/groups', section: 'Engagement' },
+  { label: 'Carousel', icon: <MonitorPlay size={18} />, path: '/dashboard/carousel', section: 'Platform' },
   { label: 'Notifications', icon: <Bell size={18} />, path: '/dashboard/notifications', section: 'Platform' },
   { label: 'Settings', icon: <Settings size={18} />, path: '/dashboard/settings', section: 'Platform' },
 ];
