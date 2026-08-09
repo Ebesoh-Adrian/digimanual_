@@ -23,6 +23,7 @@ interface Topic {
   estimated_time?: number;
   order_index?: number;
   is_premium?: boolean;
+  is_published?: boolean;
   individual_price?: number;
   media_url?: string;
   pdf_url?: string;
@@ -236,7 +237,7 @@ function TopicMediaRow({ topic, manualId }: { topic: Topic; manualId: string }) 
 }
 
 /* ─── topic card ─────────────────────────────────────── */
-function TopicCard({ topic, idx, manualId, dragIdx, onDragStart, onDragOver, onDrop, onEdit, onDelete }: {
+function TopicCard({ topic, idx, manualId, dragIdx, onDragStart, onDragOver, onDrop, onEdit, onDelete, onPublishToggle }: {
   topic: Topic; idx: number; manualId: string;
   dragIdx: number | null;
   onDragStart: (i: number) => void;
@@ -244,6 +245,7 @@ function TopicCard({ topic, idx, manualId, dragIdx, onDragStart, onDragOver, onD
   onDrop: (i: number) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onPublishToggle: (id: string, current: boolean) => void;
 }) {
   const diffColor: Record<string, string> = {
     Beginner: 'bg-green-100 text-green-700',
@@ -277,9 +279,18 @@ function TopicCard({ topic, idx, manualId, dragIdx, onDragStart, onDragOver, onD
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${topic.is_premium ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
               {topic.is_premium ? 'Premium' : 'Free'}
             </span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${topic.is_published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+              {topic.is_published ? 'Published' : 'Draft'}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => onPublishToggle(topic.id, !!topic.is_published)}
+            title={topic.is_published ? 'Unpublish topic' : 'Publish topic'}
+            className={`p-1.5 rounded-lg text-xs font-medium transition-colors ${topic.is_published ? 'hover:bg-yellow-50 text-green-600 hover:text-yellow-700' : 'hover:bg-green-50 text-gray-400 hover:text-green-600'}`}>
+            <CheckCircle size={14} />
+          </button>
           <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500" title="Edit"><Pencil size={14} /></button>
           <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600" title="Delete"><Trash2 size={14} /></button>
         </div>
@@ -605,6 +616,17 @@ export default function ManualDetailPage() {
     }
   };
 
+  const publishTopic = async (topicId: string, currentlyPublished: boolean) => {
+    try {
+      await api.patch(`/admin/topics/${topicId}`, { is_published: !currentlyPublished });
+      qc.invalidateQueries({ queryKey: ['admin', 'manuals', manualId, 'topics'] });
+      setLocalTopics([]);
+      toast.success(currentlyPublished ? 'Topic unpublished' : 'Topic published');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
   const handleDrop = async (dropIdx: number) => {
     if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
     const next = [...displayTopics];
@@ -717,6 +739,7 @@ export default function ManualDetailPage() {
                     onDrop={handleDrop}
                     onEdit={() => { setEditingTopic(t); setAddOpen(false); }}
                     onDelete={() => deleteTopic(t.id)}
+                    onPublishToggle={publishTopic}
                   />
                 )}
               </div>

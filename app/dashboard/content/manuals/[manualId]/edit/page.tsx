@@ -9,16 +9,29 @@ import { getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { ApiResponse, Manual } from '@/lib/types/api';
 
+function extractManual(raw: unknown): Manual | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (r['manual'] && typeof r['manual'] === 'object') return r['manual'] as Manual;
+  if (r['data'] && typeof r['data'] === 'object') {
+    const d = r['data'] as Record<string, unknown>;
+    if (d['manual'] && typeof d['manual'] === 'object') return d['manual'] as Manual;
+    if (d['id']) return d as Manual;
+  }
+  if (r['id']) return raw as Manual;
+  return null;
+}
+
 export default function EditManualPage() {
   const { manualId } = useParams<{ manualId: string }>();
   const router = useRouter();
   const qc = useQueryClient();
 
   const { data: manual, isLoading } = useQuery({
-    queryKey: ['admin', 'manual', manualId],
+    queryKey: ['admin', 'manuals', manualId],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<{ manual: Manual }>>(`/admin/manuals/${manualId}`);
-      return res.data.data.manual;
+      const res = await api.get<ApiResponse<unknown>>(`/admin/manuals/${manualId}`);
+      return extractManual(res.data.data);
     },
   });
 
@@ -40,7 +53,6 @@ export default function EditManualPage() {
   const mutation = useMutation({
     mutationFn: async () => api.patch(`/admin/manuals/${manualId}`, form),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'manual', manualId] });
       qc.invalidateQueries({ queryKey: ['admin', 'manuals'] });
       toast.success('Manual updated');
       router.push(`/dashboard/content/manuals/${manualId}`);
@@ -75,6 +87,7 @@ export default function EditManualPage() {
               className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]">
               <option value="OL">O-Level</option>
               <option value="AL">A-Level</option>
+              <option value="both">Both (OL & AL)</option>
               <option value="Probatoire">Probatoire</option>
               <option value="BAC">BAC</option>
               <option value="Technician">Technician</option>

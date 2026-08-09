@@ -30,37 +30,14 @@ const PRIORITY_COLOR: Record<string, string> = {
   low: 'bg-gray-100 text-gray-600',
 };
 
-interface TicketReply {
-  id: string;
-  message: string;
-  sender: 'user' | 'admin';
-  created_at: string;
-}
-
 function TicketDetail({ ticket, onBack }: { ticket: SupportTicket; onBack: () => void }) {
   const qc = useQueryClient();
   const [reply, setReply] = useState('');
   const [priority, setPriority] = useState(ticket.priority);
 
-  const { data: detailRaw } = useQuery({
-    queryKey: ['admin', 'ticket', ticket.id],
-    queryFn: async () => {
-      const res = await api.get<ApiResponse<unknown>>(`/admin/support/${ticket.id}`);
-      return res.data.data;
-    },
-  });
-
-  const replies: TicketReply[] = (() => {
-    if (!detailRaw || typeof detailRaw !== 'object') return [];
-    const r = detailRaw as Record<string, unknown>;
-    const list = r['replies'] ?? r['messages'] ?? r['data'];
-    return Array.isArray(list) ? (list as TicketReply[]) : [];
-  })();
-
   const replyMutation = useMutation({
     mutationFn: () => api.post(`/admin/support/${ticket.id}/reply`, { reply }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'ticket', ticket.id] });
       qc.invalidateQueries({ queryKey: ['admin', 'support'] });
       setReply('');
       toast.success('Reply sent');
@@ -108,16 +85,12 @@ function TicketDetail({ ticket, onBack }: { ticket: SupportTicket; onBack: () =>
           {ticket.message}
         </div>
 
-        {replies.length > 0 && (
-          <div className="space-y-3">
-            {replies.map((r) => (
-              <div key={r.id} className={`flex ${r.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm ${r.sender === 'admin' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-slate-800'}`}>
-                  <p>{r.message}</p>
-                  <p className={`text-xs mt-1 ${r.sender === 'admin' ? 'text-purple-200' : 'text-slate-400'}`}>{formatDate(r.created_at)}</p>
-                </div>
-              </div>
-            ))}
+        {ticket.admin_reply && (
+          <div className="flex justify-end">
+            <div className="max-w-[80%] rounded-xl px-4 py-2.5 text-sm bg-purple-600 text-white">
+              <p className="text-xs font-semibold text-purple-200 mb-1">Admin Reply</p>
+              <p>{ticket.admin_reply}</p>
+            </div>
           </div>
         )}
 

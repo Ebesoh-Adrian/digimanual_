@@ -70,8 +70,8 @@ export default function UsersPage() {
   });
 
   const activateMutation = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      await api.patch(`/admin/users/${userId}/activate`, { isActive });
+    mutationFn: async ({ userId }: { userId: string; isActive: boolean }) => {
+      await api.patch(`/admin/users/${userId}/activate`);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'users'] }); toast.success('User updated'); },
     onError: (e) => toast.error(getErrorMessage(e)),
