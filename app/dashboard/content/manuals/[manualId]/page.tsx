@@ -674,7 +674,7 @@ export default function ManualDetailPage() {
     );
   }
 
-  if (manualError || (!manualLoading && !manual)) {
+  if (manualError || !manual) {
     return (
       <div className="text-center py-20">
         <p className="text-slate-600 text-sm font-medium">
