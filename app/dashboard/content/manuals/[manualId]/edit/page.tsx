@@ -16,9 +16,9 @@ function extractManual(raw: unknown): Manual | null {
   if (r['data'] && typeof r['data'] === 'object') {
     const d = r['data'] as Record<string, unknown>;
     if (d['manual'] && typeof d['manual'] === 'object') return d['manual'] as Manual;
-    if (d['id']) return d as Manual;
+    if (d['id']) return d as unknown as Manual;
   }
-  if (r['id']) return raw as Manual;
+  if (r['id']) return raw as unknown as Manual;
   return null;
 }
 
