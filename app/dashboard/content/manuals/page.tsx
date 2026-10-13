@@ -10,6 +10,7 @@ import api from '@/lib/api/client';
 import { formatDate, getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { LevelCombobox } from '@/components/ui/LevelCombobox';
 import type { ApiResponse, Manual } from '@/lib/types/api';
 
 /* ─── helpers ─────────────────────────────────────── */
@@ -212,16 +213,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Level *</label>
-            <PillSelect
-              options={[
-                { label: 'O-Level', value: 'OL' },
-                { label: 'A-Level', value: 'AL' },
-                { label: 'Both', value: 'both' },
-              ]}
-              value={form.level}
-              onChange={(v) => setForm({ ...form, level: v })}
-              colorMap={{ OL: 'border-purple-600 bg-purple-50 text-purple-700', AL: 'border-indigo-600 bg-indigo-50 text-indigo-700', both: 'border-gray-500 bg-gray-50 text-gray-700' }}
-            />
+            <LevelCombobox value={form.level} onChange={(v) => setForm({ ...form, level: v })} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Language *</label>

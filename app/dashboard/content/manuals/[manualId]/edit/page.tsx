@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import api from '@/lib/api/client';
 import { getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
+import { LevelCombobox } from '@/components/ui/LevelCombobox';
 import type { ApiResponse, Manual } from '@/lib/types/api';
 
 function extractManual(raw: unknown): Manual | null {
@@ -83,15 +84,7 @@ export default function EditManualPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-[#0f172a] mb-1">Level</label>
-            <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}
-              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]">
-              <option value="OL">O-Level</option>
-              <option value="AL">A-Level</option>
-              <option value="both">Both (OL & AL)</option>
-              <option value="Probatoire">Probatoire</option>
-              <option value="BAC">BAC</option>
-              <option value="Technician">Technician</option>
-            </select>
+            <LevelCombobox value={form.level} onChange={(v) => setForm({ ...form, level: v })} />
           </div>
         </div>
         <div>

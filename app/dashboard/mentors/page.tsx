@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, Search, CheckCircle, XCircle, Ban, DollarSign, RotateCcw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { UserCheck, Search, Ban, DollarSign, RotateCcw } from 'lucide-react';
 import api from '@/lib/api/client';
 import { formatDate, formatXAF, getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ const STATUS_BADGE: Record<string, string> = {
   approved: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
   suspended: 'bg-orange-100 text-orange-700',
+  changes_requested: 'bg-orange-100 text-orange-700',
 };
 
 function ReasonModal({ title, actionLabel, onConfirm, onClose, loading }: {
@@ -48,7 +50,11 @@ function ReasonModal({ title, actionLabel, onConfirm, onClose, loading }: {
 }
 
 function PayoutModal({ mentor, onClose, onDone }: { mentor: MentorProfile; onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState({ amount: mentor.pending_payout ?? 0, phone: mentor.users?.phone_number ?? '', service: 'MTN' });
+  const [form, setForm] = useState({
+    amount: mentor.pending_payout_xaf ?? 0,
+    phone: mentor.users?.phone_number ?? '',
+    service: 'MTN',
+  });
   const [loading, setLoading] = useState(false);
   const set = (k: string, v: string | number) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -105,11 +111,22 @@ function PayoutModal({ mentor, onClose, onDone }: { mentor: MentorProfile; onClo
   );
 }
 
+type TabKey = 'pending' | 'needs_review' | 'changes_requested' | 'approved' | 'rejected' | 'suspended';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'needs_review', label: 'Needs Review' },
+  { key: 'changes_requested', label: 'Changes Requested' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'suspended', label: 'Suspended' },
+];
+
 export default function MentorsPage() {
+  const router = useRouter();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'pending' | 'approved' | 'rejected' | 'suspended' | 'all'>('pending');
+  const [tab, setTab] = useState<TabKey>('pending');
   const [search, setSearch] = useState('');
-  const [rejectTarget, setRejectTarget] = useState<MentorProfile | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<MentorProfile | null>(null);
   const [payoutTarget, setPayoutTarget] = useState<MentorProfile | null>(null);
 
@@ -118,42 +135,43 @@ export default function MentorsPage() {
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '50' });
       if (search) params.set('search', search);
-      const url = tab === 'pending'
-        ? `/admin/mentors/pending?${params}`
-        : `/admin/mentors?status=${tab}&${params}`;
+      let url: string;
+      if (tab === 'pending') {
+        url = `/admin/mentors/pending?${params}`;
+      } else if (tab === 'needs_review') {
+        params.set('needsReview', 'true');
+        url = `/admin/mentors?${params}`;
+      } else {
+        params.set('status', tab);
+        url = `/admin/mentors?${params}`;
+      }
       const res = await api.get<ApiResponse<unknown>>(url);
       return res.data.data;
     },
   });
 
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/admin/mentors/${id}/approve`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'mentors'] }); toast.success('Mentor approved'); },
-    onError: (e) => toast.error(getErrorMessage(e)),
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => api.post(`/admin/mentors/${id}/reject`, { reason }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'mentors'] }); toast.success('Mentor rejected'); setRejectTarget(null); },
-    onError: (e) => toast.error(getErrorMessage(e)),
-  });
-
   const suspendMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => api.post(`/admin/mentors/${id}/suspend`, { reason }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'mentors'] }); toast.success('Mentor suspended'); setSuspendTarget(null); },
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post(`/admin/mentors/${id}/suspend`, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'mentors'] });
+      toast.success('Mentor suspended');
+      setSuspendTarget(null);
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  });
+
+  const reinstateMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/admin/mentors/${id}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'mentors'] });
+      toast.success('Mentor reinstated');
+    },
     onError: (e) => toast.error(getErrorMessage(e)),
   });
 
   const mentors = extract(raw);
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'mentors'] });
-
-  const TABS: { key: typeof tab; label: string }[] = [
-    { key: 'pending', label: 'Pending' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'rejected', label: 'Rejected' },
-    { key: 'suspended', label: 'Suspended' },
-    { key: 'all', label: 'All' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -162,14 +180,16 @@ export default function MentorsPage() {
         <p className="text-sm text-slate-500 mt-0.5">Review applications and manage mentor accounts</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex gap-1 bg-[#f8fafc] rounded-lg p-1 border border-[#e2e8f0]">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
-              {t.label}
-            </button>
-          ))}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+        <div className="overflow-x-auto">
+          <div className="flex gap-0.5 bg-[#f8fafc] rounded-lg p-1 border border-[#e2e8f0] w-fit">
+            {TABS.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${tab === t.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -184,7 +204,7 @@ export default function MentorsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#e2e8f0] bg-[#f8fafc]">
-                {['Name', 'Subjects', 'Status', 'Total Earnings', 'Pending Payout', 'Joined', 'Actions'].map((h) => (
+                {['Name', 'Subjects', 'Status', 'Completeness', 'Earnings', 'Joined', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -206,36 +226,38 @@ export default function MentorsPage() {
                   </td>
                 </tr>
               ) : mentors.map((m) => (
-                <tr key={m.id} className="border-b border-[#f1f5f9] hover:bg-purple-50/20 transition-colors">
+                <tr key={m.id}
+                  onClick={() => router.push(`/dashboard/mentors/${m.id}`)}
+                  className="border-b border-[#f1f5f9] hover:bg-purple-50/30 transition-colors cursor-pointer">
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-900">{m.full_name}</p>
                     <p className="text-xs text-slate-400">{m.users?.phone_number ?? ''}</p>
                   </td>
-                  <td className="px-4 py-3 max-w-[160px]">
+                  <td className="px-4 py-3 max-w-[140px]">
                     <p className="text-slate-700 truncate text-xs">{m.subjects?.join(', ') ?? '—'}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[m.verification_status] ?? 'bg-gray-100 text-gray-700'}`}>
-                      {m.verification_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700 font-medium">{formatXAF(m.total_earnings)}</td>
-                  <td className="px-4 py-3 text-slate-700">{formatXAF(m.pending_payout)}</td>
-                  <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{formatDate(m.created_at)}</td>
-                  <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {(m.verification_status === 'pending' || m.verification_status === 'rejected') && (
-                        <button onClick={() => approveMutation.mutate(m.id)}
-                          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium">
-                          <CheckCircle size={12} /> Approve
-                        </button>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[m.verification_status] ?? 'bg-gray-100 text-gray-700'}`}>
+                        {m.verification_status.replace(/_/g, ' ')}
+                      </span>
+                      {m.overdue && tab === 'pending' && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">Overdue</span>
                       )}
-                      {m.verification_status === 'pending' && (
-                        <button onClick={() => setRejectTarget(m)}
-                          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium">
-                          <XCircle size={12} /> Reject
-                        </button>
-                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 min-w-[100px]">
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-purple-600 h-1.5 rounded-full" style={{ width: `${m.completeness ?? 0}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-500 shrink-0">{m.completeness ?? 0}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-700 font-medium">{formatXAF(m.total_earnings_xaf)}</td>
+                  <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{formatDate(m.created_at)}</td>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {m.verification_status === 'approved' && (
                         <>
                           <button onClick={() => setSuspendTarget(m)}
@@ -249,8 +271,8 @@ export default function MentorsPage() {
                         </>
                       )}
                       {m.verification_status === 'suspended' && (
-                        <button onClick={() => approveMutation.mutate(m.id)}
-                          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium">
+                        <button onClick={() => reinstateMutation.mutate(m.id)} disabled={reinstateMutation.isPending}
+                          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium disabled:opacity-60">
                           <RotateCcw size={12} /> Reinstate
                         </button>
                       )}
@@ -263,12 +285,6 @@ export default function MentorsPage() {
         </div>
       </div>
 
-      {rejectTarget && (
-        <ReasonModal title="Reject Mentor" actionLabel="Reject"
-          loading={rejectMutation.isPending}
-          onClose={() => setRejectTarget(null)}
-          onConfirm={(reason) => rejectMutation.mutate({ id: rejectTarget.id, reason })} />
-      )}
       {suspendTarget && (
         <ReasonModal title="Suspend Mentor" actionLabel="Suspend"
           loading={suspendMutation.isPending}

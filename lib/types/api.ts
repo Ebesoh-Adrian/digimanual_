@@ -124,13 +124,64 @@ export interface MentorProfile {
   full_name: string;
   subjects: string[];
   bio: string | null;
-  hourly_rate: number;
-  verification_status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  hourly_rate_xaf: number;
+  verification_status: 'pending' | 'approved' | 'rejected' | 'suspended' | 'changes_requested';
   total_sessions: number;
-  total_earnings: number;
-  pending_payout: number;
+  total_earnings_xaf: number;
+  pending_payout_xaf: number;
+  completeness: number;
+  missing_sections: string[];
+  needs_review: boolean;
+  submitted_at: string | null;
+  overdue: boolean;
   created_at: string;
-  users?: { display_name: string; phone_number: string };
+  users?: { display_name: string; phone_number: string; profile_picture?: string | null };
+}
+
+export interface VerificationStep {
+  key: string;
+  label: string;
+  automatic: boolean;
+  required: boolean;
+  status: 'not_started' | 'submitted' | 'in_review' | 'verified' | 'rejected' | 'changes_requested';
+  note?: string;
+  data?: Record<string, unknown>;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface MentorEvent {
+  id: string;
+  action: string;
+  performedBy: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface MentorAccount {
+  email: string;
+  phone: string | null;
+  school: string | null;
+  joinedAt: string;
+  emailVerified: boolean;
+}
+
+export interface MentorDetail {
+  mentor: Record<string, unknown>;
+  account: MentorAccount;
+  completeness: number;
+  steps: VerificationStep[];
+  canApprove: boolean;
+  blocking: string[];
+  overdue: boolean;
+  events: MentorEvent[];
+}
+
+export interface Level {
+  code: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
 }
 
 export interface Payment {

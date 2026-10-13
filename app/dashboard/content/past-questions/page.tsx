@@ -3,12 +3,13 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, FileText, Upload, Search, CheckCircle, XCircle,
-  MoreVertical, Trash2, BookOpen, Download,
+  Plus, FileText, Upload, Search, CheckCircle,
+  MoreVertical, Trash2, BookOpen, Download, Pencil,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { formatDate, getErrorMessage } from '@/lib/utils';
 import { toast } from 'sonner';
+import { LevelCombobox } from '@/components/ui/LevelCombobox';
 import type { ApiResponse, PastQuestion } from '@/lib/types/api';
 
 function extract(raw: unknown): PastQuestion[] {
@@ -25,8 +26,8 @@ function extractPag(raw: unknown) {
   return (r['pagination'] ?? null) as { total: number; pages: number; page: number } | null;
 }
 
-function ActionMenu({ onUploadSolution, onVerify, onDelete, hasVerified }: {
-  onUploadSolution: () => void; onVerify: () => void; onDelete: () => void; hasVerified: boolean;
+function ActionMenu({ onUploadSolution, onVerify, onDelete, onEdit, hasVerified }: {
+  onUploadSolution: () => void; onVerify: () => void; onDelete: () => void; onEdit: () => void; hasVerified: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -39,6 +40,10 @@ function ActionMenu({ onUploadSolution, onVerify, onDelete, hasVerified }: {
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-8 z-20 bg-white border border-[#e2e8f0] rounded-xl shadow-lg w-44 py-1">
+            <button onClick={() => { onEdit(); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <Pencil size={13} /> Edit Paper
+            </button>
             <button onClick={() => { onUploadSolution(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
               <Upload size={13} /> Upload Solution
@@ -58,8 +63,82 @@ function ActionMenu({ onUploadSolution, onVerify, onDelete, hasVerified }: {
   );
 }
 
+function EditModal({ paper, onClose, onSaved }: { paper: PastQuestion; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    examTitle: paper.exam_title,
+    subject: paper.subject,
+    level: paper.level,
+    examYear: paper.exam_year,
+    isPremium: paper.is_premium,
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k: string, v: string | number | boolean) => setForm((p) => ({ ...p, [k]: v }));
+
+  const submit = async () => {
+    if (!form.examTitle || !form.subject) { toast.error('Title and subject are required'); return; }
+    setSaving(true);
+    try {
+      await api.patch(`/admin/past-questions/${paper.id}`, form);
+      toast.success('Paper updated');
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e2e8f0]">
+          <h2 className="font-semibold text-slate-900">Edit Past Paper</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Exam Title *</label>
+            <input value={form.examTitle} onChange={(e) => set('examTitle', e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Subject *</label>
+              <input value={form.subject} onChange={(e) => set('subject', e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Exam Year *</label>
+              <input type="number" value={form.examYear} onChange={(e) => set('examYear', Number(e.target.value))}
+                min={1990} max={2030}
+                className="w-full h-10 px-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Level *</label>
+            <LevelCombobox value={form.level} onChange={(v) => set('level', v)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="edit-premium" checked={form.isPremium} onChange={(e) => set('isPremium', e.target.checked)}
+              className="w-4 h-4 accent-purple-600" />
+            <label htmlFor="edit-premium" className="text-sm text-slate-700">Premium content</label>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-[#e2e8f0] flex gap-3 justify-end">
+          <button onClick={onClose} className="h-10 px-4 rounded-lg border border-slate-300 text-sm text-gray-700 hover:bg-slate-50">Cancel</button>
+          <button onClick={submit} disabled={saving}
+            className="h-10 px-5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium disabled:opacity-60">
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ exam_title: '', subject: '', level: 'O-Level', exam_year: new Date().getFullYear() });
+  const [form, setForm] = useState({ exam_title: '', subject: '', level: 'OL', exam_year: new Date().getFullYear() });
   const [paperFile, setPaperFile] = useState<File | null>(null);
   const [solutionFile, setSolutionFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -123,14 +202,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Level *</label>
-            <div className="flex gap-2">
-              {['O-Level', 'A-Level'].map((l) => (
-                <button key={l} onClick={() => set('level', l)}
-                  className={`px-4 h-9 rounded-lg text-sm font-medium border transition-colors ${form.level === l ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
-                  {l}
-                </button>
-              ))}
-            </div>
+            <LevelCombobox value={form.level} onChange={(v) => set('level', v)} />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Exam Paper PDF *</label>
@@ -220,6 +292,7 @@ export default function PastQuestionsPage() {
   const [level, setLevel] = useState('');
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
+  const [editTarget, setEditTarget] = useState<PastQuestion | null>(null);
   const [solutionTarget, setSolutionTarget] = useState<PastQuestion | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PastQuestion | null>(null);
 
@@ -287,13 +360,14 @@ export default function PastQuestionsPage() {
             className="w-full h-10 pl-9 pr-3 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="Search by title or subject…" />
         </div>
-        <div className="flex gap-2">
-          {['', 'O-Level', 'A-Level'].map((l) => (
-            <button key={l} onClick={() => { setLevel(l); setPage(1); }}
-              className={`h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${level === l ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
-              {l || 'All'}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setLevel(''); setPage(1); }}
+            className={`h-10 px-4 rounded-lg text-sm font-medium border transition-colors ${level === '' ? 'bg-purple-600 text-white border-purple-600' : 'border-[#e2e8f0] text-slate-600 hover:bg-gray-50'}`}>
+            All
+          </button>
+          <div className="w-40">
+            <LevelCombobox value={level} onChange={(v) => { setLevel(v); setPage(1); }} />
+          </div>
         </div>
       </div>
 
@@ -351,6 +425,7 @@ export default function PastQuestionsPage() {
                   <td className="px-4 py-3">
                     <ActionMenu
                       hasVerified={p.is_verified}
+                      onEdit={() => setEditTarget(p)}
                       onUploadSolution={() => setSolutionTarget(p)}
                       onVerify={() => verifyMutation.mutate(p.id)}
                       onDelete={() => setDeleteTarget(p)}
@@ -375,6 +450,7 @@ export default function PastQuestionsPage() {
       </div>
 
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={refresh} />}
+      {editTarget && <EditModal paper={editTarget} onClose={() => setEditTarget(null)} onSaved={refresh} />}
       {solutionTarget && <SolutionModal paper={solutionTarget} onClose={() => setSolutionTarget(null)} onDone={refresh} />}
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
